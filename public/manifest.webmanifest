@@ -1,0 +1,19 @@
+{
+  "name": "Life Journey",
+  "short_name": "Journey",
+  "description": "A clean personal dashboard for self-rebuild, CPA, career, debt freedom, and family home goals.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#071018",
+  "theme_color": "#7dd3fc",
+  "orientation": "portrait-primary",
+  "icons": [
+    {
+      "src": "/icon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}
