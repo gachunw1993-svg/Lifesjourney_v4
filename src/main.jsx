@@ -5,7 +5,13 @@ import './styles.css';
 
 const STORAGE_KEY = 'life-journey-v5';
 
-const todayISO = () => new Date().toISOString().slice(0, 10);
+const todayISO = () => {
+
+  const now = new Date();
+
+  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
+
+};
 const clamp = (n, min = 0, max = 100) => Math.min(max, Math.max(min, n));
 
 const initialState = {
