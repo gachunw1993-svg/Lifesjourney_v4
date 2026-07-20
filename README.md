@@ -1,6 +1,10 @@
-# Life Journey App
+# Life Journey App — Version 6
 
 A clean mobile-friendly web app for tracking long-term life progress: self-rebuild, CPA completion, career reintegration, debt freedom, family support, and the family home mission.
+
+Version 6 adds a monthly Check-In History calendar. Completed days, saved drafts,
+daily activities, well-being ratings, notes, and calculated progress changes can
+all be reviewed from the History page.
 
 ## Run locally
 

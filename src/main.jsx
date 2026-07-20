@@ -5,13 +5,13 @@ import './styles.css';
 
 const STORAGE_KEY = 'life-journey-v5';
 
-const todayISO = () => {
-
-  const now = new Date();
-
-  return `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-
+const dateISO = (date = new Date()) => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
 };
+const todayISO = () => dateISO();
 const clamp = (n, min = 0, max = 100) => Math.min(max, Math.max(min, n));
 
 const initialState = {
@@ -155,6 +155,25 @@ function calculateStats(state) {
   return stats;
 }
 
+function calculateLogChanges(log) {
+  const changes = {};
+  Object.entries(log?.actions || {}).forEach(([key, checked]) => {
+    if (!checked) return;
+    const def = actionDefs.find(action => action.key === key);
+    if (!def) return;
+    Object.entries(def.affects).forEach(([stat, value]) => {
+      changes[stat] = (changes[stat] || 0) + value;
+    });
+  });
+  if (log?.stress >= 8) changes.stressResilience = (changes.stressResilience || 0) - 0.12;
+  if (log?.urge >= 8) changes.gamblingRegulation = (changes.gamblingRegulation || 0) - 0.12;
+  if (log?.energy === 'High') changes.baselineStability = (changes.baselineStability || 0) + 0.04;
+  if (log?.mood === 'Good') changes.mentalStrength = (changes.mentalStrength || 0) + 0.04;
+  return Object.entries(changes)
+    .filter(([, value]) => Math.abs(value) >= 0.005)
+    .sort((a, b) => Math.abs(b[1]) - Math.abs(a[1]));
+}
+
 function Progress({ value, label, sub, icon: Icon = Target, danger=false }) {
   return <div className="progress-card">
     <div className="progress-top"><div className="progress-title"><Icon size={18}/><span>{label}</span></div><strong>{Math.round(value)}%</strong></div>
@@ -211,13 +230,14 @@ function App() {
     <aside className="sidebar">
       <div className="brand"><div className="orb">LJ</div><div><h1>Life Journey</h1><span>Rebuild • CPA • Family Home</span></div></div>
       <nav>{[
-        ['home','Home',Home],['today','Today',CalendarDays],['goals','Goals',Target],['self','Self-Rebuild',Sparkles],['insights','Insights',LineChart]
+        ['home','Home',Home],['today','Today',NotebookPen],['history','History',CalendarDays],['goals','Goals',Target],['self','Self-Rebuild',Sparkles],['insights','Insights',LineChart]
       ].map(([id,label,Icon]) => <button key={id} onClick={() => setTab(id)} className={tab===id?'active':''}><Icon size={18}/>{label}</button>)}</nav>
       <div className="side-note"><strong>Current focus</strong><span>CPA + work re-entry while protecting well-being.</span></div>
     </aside>
     <main className="main">
       {tab === 'home' && <HomeScreen state={state} stats={stats} />}
       {tab === 'today' && <TodayScreen today={today} upsertLog={upsertLog} completeDay={completeDay} dailySummary={dailySummary} setDailySummary={setDailySummary} />}
+      {tab === 'history' && <HistoryScreen logs={state.logs} />}
       {tab === 'goals' && <GoalsScreen state={state} update={update} stats={stats} />}
       {tab === 'self' && <SelfScreen stats={stats} />}
       {tab === 'insights' && <InsightsScreen state={state} stats={stats} recent={recent} />}
@@ -269,6 +289,77 @@ function TodayScreen({ today, upsertLog, completeDay, dailySummary, setDailySumm
   </section>
 }
 function Slider({label,value,onChange}) { return <div className="row"><label>{label}: {value}/10</label><input type="range" min="1" max="10" value={value} onChange={e=>onChange(Number(e.target.value))}/></div> }
+
+function HistoryScreen({ logs }) {
+  const now = new Date();
+  const [monthDate, setMonthDate] = useState(new Date(now.getFullYear(), now.getMonth(), 1));
+  const [selectedDate, setSelectedDate] = useState(todayISO());
+  const logsByDate = useMemo(() => Object.fromEntries(logs.map(log => [log.date, log])), [logs]);
+  const year = monthDate.getFullYear();
+  const month = monthDate.getMonth();
+  const firstWeekday = new Date(year, month, 1).getDay();
+  const daysInMonth = new Date(year, month + 1, 0).getDate();
+  const cells = [
+    ...Array.from({ length: firstWeekday }, () => null),
+    ...Array.from({ length: daysInMonth }, (_, index) => index + 1),
+  ];
+  while (cells.length % 7) cells.push(null);
+  const selectedLog = logsByDate[selectedDate];
+  const completedCount = logs.filter(log => {
+    const date = new Date(`${log.date}T12:00:00`);
+    return log.completed && date.getFullYear() === year && date.getMonth() === month;
+  }).length;
+  const changeMonth = amount => {
+    const next = new Date(year, month + amount, 1);
+    setMonthDate(next);
+    setSelectedDate(dateISO(next));
+  };
+  const selectDay = day => setSelectedDate(dateISO(new Date(year, month, day)));
+  const selectedLabel = new Date(`${selectedDate}T12:00:00`).toLocaleDateString(undefined, {
+    weekday: 'long', month: 'long', day: 'numeric', year: 'numeric',
+  });
+
+  return <section><Header title="Check-In History" text="See your consistency by month and revisit the details behind each day." />
+    <div className="history-layout">
+      <div className="panel calendar-panel">
+        <div className="calendar-heading">
+          <button aria-label="Previous month" onClick={() => changeMonth(-1)}>‹</button>
+          <div><h3>{monthDate.toLocaleDateString(undefined, { month: 'long', year: 'numeric' })}</h3><p>{completedCount} completed {completedCount === 1 ? 'check-in' : 'check-ins'}</p></div>
+          <button aria-label="Next month" onClick={() => changeMonth(1)}>›</button>
+        </div>
+        <div className="calendar-legend"><span><i className="legend-dot complete"/>Completed</span><span><i className="legend-dot draft"/>Draft</span></div>
+        <div className="calendar-grid weekday-row">{['Sun','Mon','Tue','Wed','Thu','Fri','Sat'].map(day => <span key={day}>{day}</span>)}</div>
+        <div className="calendar-grid days-grid">{cells.map((day, index) => {
+          if (!day) return <span className="calendar-empty" key={`empty-${index}`} />;
+          const iso = dateISO(new Date(year, month, day));
+          const log = logsByDate[iso];
+          const classes = ['calendar-day', log?.completed ? 'is-complete' : log ? 'is-draft' : '', iso === selectedDate ? 'is-selected' : '', iso === todayISO() ? 'is-today' : ''].filter(Boolean).join(' ');
+          return <button className={classes} key={iso} onClick={() => selectDay(day)} aria-label={`${iso}${log?.completed ? ', completed' : log ? ', draft' : ', no check-in'}`}><span>{day}</span>{log && <i />}</button>;
+        })}</div>
+        <button className="today-jump" onClick={() => { setMonthDate(new Date(now.getFullYear(), now.getMonth(), 1)); setSelectedDate(todayISO()); }}>Jump to Today</button>
+      </div>
+      <CheckInDetails dateLabel={selectedLabel} log={selectedLog} />
+    </div>
+  </section>
+}
+
+function CheckInDetails({ dateLabel, log }) {
+  const selectedActions = actionDefs.filter(action => log?.actions?.[action.key]);
+  const changes = log?.completed ? calculateLogChanges(log) : [];
+  return <div className="panel checkin-details">
+    <div className="details-heading"><div><p className="eyebrow">Selected Day</p><h3>{dateLabel}</h3></div><span className={`status-pill ${log?.completed ? 'complete' : log ? 'draft' : 'empty'}`}>{log?.completed ? 'Completed' : log ? 'Draft' : 'No Check-In'}</span></div>
+    {!log && <div className="empty-checkin"><CalendarDays size={28}/><p>No check-in was saved for this day.</p></div>}
+    {log && <>
+      <div className="state-summary"><StatDetail label="Mood" value={log.mood || '—'}/><StatDetail label="Energy" value={log.energy || '—'}/><StatDetail label="Stress" value={`${log.stress ?? '—'}/10`}/><StatDetail label="Gambling Urge" value={`${log.urge ?? '—'}/10`}/></div>
+      <div className="details-section"><h4>Selected Activities</h4>{selectedActions.length ? <div className="activity-list">{selectedActions.map(({ key, label, icon: Icon }) => <span key={key}><Icon size={16}/>{label}</span>)}</div> : <p>No activities selected.</p>}</div>
+      <div className="details-section"><h4>Notes</h4><p className={log.note ? 'saved-note' : ''}>{log.note || 'No notes added.'}</p></div>
+      <div className="details-section"><h4>Progress Changes</h4>{!log.completed ? <p>Draft activity does not affect progress until the day is completed.</p> : changes.length ? <div className="change-list">{changes.map(([key, value]) => <span className={value >= 0 ? 'positive' : 'negative'} key={key}><strong>{statLabels[key]?.[0] || key}</strong><b>{value >= 0 ? '+' : ''}{value.toFixed(2)}%</b></span>)}</div> : <p>No progress changes recorded.</p>}</div>
+      {log.completedAt && <p className="completed-time">Completed {new Date(log.completedAt).toLocaleString(undefined, { dateStyle: 'medium', timeStyle: 'short' })}</p>}
+    </>}
+  </div>
+}
+
+function StatDetail({ label, value }) { return <div><span>{label}</span><strong>{value}</strong></div> }
 
 function GoalsScreen({ state, update, stats }) {
   const setMilestone = (key, checked) => update({ ...state, milestones: { ...state.milestones, [key]: checked } });
@@ -351,4 +442,3 @@ if ('serviceWorker' in navigator) {
     navigator.serviceWorker.register('/sw.js').catch(() => {});
   });
 }
-
