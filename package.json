@@ -1,19 +1,22 @@
 {
   "name": "life-journey-app",
-  "version": "0.1.0",
+  "version": "0.6.0",
   "private": true,
   "type": "module",
+  "engines": {
+    "node": "22.x"
+  },
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "build": "vite build",
     "preview": "vite preview --host 0.0.0.0"
   },
   "dependencies": {
-    "@vitejs/plugin-react": "latest",
-    "vite": "latest",
-    "react": "latest",
-    "react-dom": "latest",
-    "lucide-react": "latest"
+    "@vitejs/plugin-react": "6.0.3",
+    "vite": "8.1.5",
+    "react": "19.2.7",
+    "react-dom": "19.2.7",
+    "lucide-react": "1.25.0"
   },
   "devDependencies": {}
 }
